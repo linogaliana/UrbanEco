@@ -4,7 +4,7 @@ author: "Lino Galiana"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Drawing city maps}
+  %\VignetteIndexEntry{Paris Vélib Data}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
