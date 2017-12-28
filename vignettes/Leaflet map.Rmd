@@ -221,16 +221,6 @@ leaflet(dfbike2.xy) %>% addTiles() %>% setView(coordinates[1],  coordinates[2], 
 
 No suprise around Sciences Po, as it is part of the 6th *arrondissement*. Bikes that come in the morning are no longer present for the night. In other words, people come from other Paris areas and leave before nightfall. This embodies the fact that several university are part of the Sciences Po's neighborhood. On the contrary, as expected, people that live in Sciences Po's neighborhood (richer than average) do not tend to take Vélib to go back home after business hours.
 
-```{r, show = FALSE, eval=FALSE}
-plothisto <- function(id){
-  
-  data <- df[df$number == id,] %>% dplyr::mutate(vacancy_rate = available_bike_stands/bike_stands)
-  
-  p <- ggplot(data) + geom_histogram(aes(x = vacancy_rate))
-  return(p)
-}
-```
-
 # Determine station type
 
 ## Objective

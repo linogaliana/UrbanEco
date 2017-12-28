@@ -7,10 +7,10 @@
 # Construire une fonction qui appelle l'API
 get_by_code <- function(query){
   url <- paste("https://geo.api.gouv.fr/communes?codePostal=",query, "&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&format=json&geometry=centre", sep = "")
-  result <- fromJSON(url)
+  result <- jsonlite::fromJSON(url)
   return(result)
 }
-get_by_code("35200")
+#' get_by_code("35200")
 
 
 # +++++++++++++++++++++++++++++++

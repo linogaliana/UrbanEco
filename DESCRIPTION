@@ -1,14 +1,16 @@
 Package: UrbanEco
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Spatial Analysis with R
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Author: Lino Galiana
+Maintainer: Lino Galiana <linogaliana@sciencespo.fr>
+Description: An R package and some tutorials to use
+      R for spatial analysis
 Encoding: UTF-8
 LazyData: true
+Imports: rgdal, dplyr
+Depends: rgdal, dplyr
 Suggests: knitr,
-    rmarkdown
+  rmarkdown, jsonlite
+License: GNU GPLv3
 VignetteBuilder: knitr

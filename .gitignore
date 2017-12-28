@@ -3,3 +3,7 @@
 .RData
 .Ruserdata
 inst/doc
+.Rapp.history
+
+bfg-1.12.16.jar
+bfg.jar
