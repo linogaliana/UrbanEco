@@ -14,3 +14,4 @@ Suggests: knitr,
   rmarkdown, jsonlite, stringr
 License: GNU GPLv3
 VignetteBuilder: knitr
+RoxygenNote: 6.0.1
