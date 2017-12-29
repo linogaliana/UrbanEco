@@ -1,16 +1,43 @@
-
-
 # +++++++++++++++++++++++
 # GEO API
 # +++++++++++++++++++++++
 
-# Construire une fonction qui appelle l'API
-get_by_code <- function(query){
-  url <- paste("https://geo.api.gouv.fr/communes?codePostal=",query, "&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&format=json&geometry=centre", sep = "")
+#' Query French city informations with GEO API
+#'
+#' Simple calls to \url{https://api.gouv.fr/api/api-geo.html},
+#' French government statistics (from Etalab). \code{get.GEOAPI.byzip}
+#' returns the cities associated to the ZIP code requested
+#' \code{get.GEOAPI} allows more complex calls
+#'
+#' @param ZIPcode ZIP code to query
+#' @return List returning all cities that match a request.
+#'  with this ZIP code with some. For instance, by default,
+#' `code` (INSEE city identifier),
+#' `codesPostaux` (ZIP code), `codeDepartement` (department code),
+#' `codeRegion` (region code), `population`
+#'
+#' @examples get.GEOAPI.byzip("35220")
+#' get.GEOAPI.byzip("75001")
+
+get.GEOAPI.byzip <- function(ZIPcode){
+  url <- paste("https://geo.api.gouv.fr/communes?codePostal=",URLencode(ZIPcode),
+               "&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&format=json&geometry=centre", sep = "")
   result <- jsonlite::fromJSON(url)
   return(result)
 }
-#' get_by_code("35200")
+
+#' @rdname get.GEOAPI.byzip
+#' @examples
+#' get.GEOAPI("nom=versailles")
+#' get.GEOAPI("lon=2.1301&lat=48.8014")
+#' get.GEOAPI("nom=toulouse", fields = "nom, code, codesPostaux, population")
+get.GEOAPI <- function(query, fields = "nom,code,codesPostaux,codeDepartement,codeRegion,population"){
+  url <- paste("https://geo.api.gouv.fr/communes?",URLencode(query),
+               "&fields=",stringr::str_replace_all(fields," ",""),
+               "&format=json&geometry=centre", sep = "")
+  result <- jsonlite::fromJSON(url)
+  return(result)
+}
 
 
 # +++++++++++++++++++++++++++++++
@@ -18,24 +45,24 @@ get_by_code <- function(query){
 # +++++++++++++++++++++++++++++++
 
 # BASE D'ADRESSES NATIONALES
-#https://adresse.data.gouv.fr/api/
+#
 
-#' getGEOAPI('kebab',T)
-#' getGEOAPI()
-#' getGEOAPI('8 bd du port&lat=48.789&lon=2.789')
+#' Query locations associated with a requested address in France
 #'
-# getGEOAPI(query = paste0(
-#   paste(df$NumeroVoieEtablissement,df$TypeVoieEtablissement,
-#         df$LibelleVoieEtablissement,sep = " ")[1],
-#   "&citycode  =",df$CodeCommuneEtablissement[1]))
-# getGEOAPI(query = paste0(
-#   paste('Pharmacie',df$TypeVoieEtablissement,
-#         df$LibelleVoieEtablissement,sep = " ")[1],
-#   "&citycode  =",df$CodeCommuneEtablissement[1]),
-#   geo.place = T)
+#' Use French *Base d'Adresses Nationales* (\url{https://adresse.data.gouv.fr/api/})
+#' to get coordinates of an address or a place
+#'
+#' @examples
+#' # Search 8 boulevard du Port in all French cities
+#' get.banAPI()$features
+#' # Search 8 boulevard du Port around a point
+#' get.banAPI('8 bd du port&lat=48.789&lon=2.789')$features
+#' # Search for Kebab everywhere
+#' get.banAPI('kebab',T)$features
+#' # Search a specific adress
+#' get.banAPI('36 Quai des Orfèvres')$features
 
-
-getGEOAPI <- function(query = '8 bd du port',
+get.banAPI <- function(query = '8 bd du port',
                       geo.place = F){
 
   url <- if (!geo.place) paste0("https://api-adresse.data.gouv.fr/search/?q=",
