@@ -17,12 +17,15 @@ This `repo` is dedicated to R programming language. It shows that spatial data c
 
 All spatial data presented are open-source data, mostly coming from [data.gouv](https://www.data.gouv.fr/fr/), the French official statistics website. In this repository, you can find the following tutorials:
 
-* [Analyze Paris free biking system with R](https://cdn.rawgit.com/linogaliana/UrbanEco/378746f4/vignettes/leaflet_map.html?raw=true): a tutorial on how to build pedagogical maps with `leaflet`. Tutorial is illustrated with May 2017 Vélib data, the Paris free biking system.  
+* [Handle Spatial Data with R](): a tutorial showing how to use spatial data in R.
+* [Analyze Paris free biking system with R](https://cdn.rawgit.com/linogaliana/UrbanEco/378746f4/vignettes/leaflet_map.html?raw=true): a tutorial for building pedagogical maps with `leaflet`. Tutorial is illustrated with May 2017 Vélib data, the Paris free biking system.  
 
-The tutorials are available `vignettes` for the `UrbanEco` package (see below for installation). The `R Markdown` used to generate these files are available in the `/vignettes` directory of the repository. It is recommended to look at the HTML versions. Since github has some troubles to represent HTML pages, it is recommended to follow the links given above to access these pages.
+You can also find the following tools to help you working with spatial data:
 
-To help people that would like to use some functions presented (e.g. to get *xy* locations of a French address, to easily get the shape of a city for plotting...), a few functions have been integrated in a package. 
+* `UrbanEco`: R package for spatial analysis
+* [`GEOCODEREQUEST`](https://linogaliana.shinyapps.io/geocoderequest/): an online application (built with `Shiny`) for requesting several addresses from a file (`csv`, `excel`, `txt`)
 
+They are built to help anyone that want to work with spatial data. The tutorials are available `vignettes` for the `UrbanEco` package (see below for installation). The `R Markdown` used to generate these files are available in the `/vignettes` directory of the repository. It is recommended to look at the HTML versions. Since github has some troubles to represent HTML pages, it is recommended to follow the links given above to access these pages.
 
 # Getting started with `UrbanEco`
 
