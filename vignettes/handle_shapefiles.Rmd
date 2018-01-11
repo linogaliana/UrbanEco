@@ -157,7 +157,7 @@ As explained earlier, one should care about the projection system. In our case, 
 proj4string(df) <- CRS("+init=epsg:2154")
 ```
 
-As any `sp` object, it is now easy to represent our data on a map (see dedicated [tutorial]())
+As any `sp` object, it is now easy to represent our data on a map (see dedicated [tutorial](https://github.com/linogaliana/UrbanEco/blob/master/inst/doc/plot_shapefiles.html))
 ```{r, fig.width=12, fig.height=8}
 leaflet::leaflet(df) %>% leaflet::addTiles() %>%
   leaflet::addCircles(popup = ~name)

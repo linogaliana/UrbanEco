@@ -4,7 +4,7 @@ author: "Lino Galiana"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Paris Vélib Data}
+  %\VignetteIndexEntry{Paris Velib Data}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -50,7 +50,7 @@ Data that are presented here are all open-access. You can download them by follo
 
 ## Station shapefile
 
-To get stations location, shapefiles are the most convenient tools. JCDecaux Vélib shapefiles have been found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). Since the link might no longer be active, you can find it on this [repo](https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true). To reproduce this analysis with the new Vélib system, go [here](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/). As shown in the [tutorial]() dedicated to shapefiles handling, we use `rgdal` to read shapefiles
+To get stations location, shapefiles are the most convenient tools. JCDecaux Vélib shapefiles have been found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). Since the link might no longer be active, you can find it on this [repo](https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true). To reproduce this analysis with the new Vélib system, go [here](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/). As shown in the [tutorial](https://cdn.rawgit.com/linogaliana/UrbanEco/b1436c46/inst/doc/handle_shapefiles.html) dedicated to shapefiles handling, we use `rgdal` to read shapefiles
 
 ```{r}
 # Download, unzip and load Vélib station shapefile
