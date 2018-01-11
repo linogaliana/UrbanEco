@@ -21,9 +21,9 @@ R has several package to handle spatial data or represent them. We will study fr
 
 This tutorial will show how we can use `leaflet` to represent spatial data and how to handle them in `R`. It will also give a few examples of statistical techniques that can be used in spatial analysis. Several types of readers can find happiness here. Those that are only interested in `leaflet` can only look at the map produced and the functions called. Those interested in machine learning problems for spatial analysis can have a closer look to the techniques used. Those interested in understanding free biking spatial and temporal distributions will find other elements useful. 
 
-We use 2017 Vélib data from JC Decaux. Vélib data are open data and available on [data.gouv](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/#_) and [JC Decaux API](https://developer.jcdecaux.com/#/opendata/vls?page=getstarted). We will use more complete data made available by the `IFFSTAR`, [here](http://vlsstats.ifsttar.fr/rawdata/) that allow to get free access to historic data.
+We use 2017 Vélib data from JC Decaux open data. Vélib data are available on [data.gouv](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/#_) and [JC Decaux API](https://developer.jcdecaux.com/#/opendata/vls?page=getstarted). We will use more complete data made available by the `IFFSTAR`, [here](http://vlsstats.ifsttar.fr/rawdata/) that allow to get free access to historic data.
 
-Last months data are special - many stations have been closed to prepare operating firms transition - and should rather not be used. We will present data based on May 2017.
+Last months data are special - many stations have been closed to prepare operating firms transition - and should rather not be used. We will present data based on May 2017. To ensure reproducibility of the results, allowing `Vignettes` to be built for any user wanting to import package, we use the `UrbanEco::download.unzip` method we built. 
 
 # Loading data
 
@@ -39,23 +39,22 @@ library(leaflet)
 library(dplyr)
 library(rgdal)
 library(ggplot2)
-#library(UrbanEco)
-
 library(mapview)
+
+library(UrbanEco)
 ```
 
 Other packages that are used for only a few functions are called as `pkg::function`. 
 
-Data that are presented here are all open-access. You can download them by following the links indicated an unzip them all in a specific directory you will call `datadir`
+Data that are presented here are all open-access. You can download them by following the links indicated and unzip them all in a specific directory. 
 
 ## Station shapefile
 
-To get stations location, shapefiles are the most convenient tools. Vélib shapefile can be found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). As shown in the [tutorial]() dedicated to shapefiles handling, we use `rgdal` to read shapefiles
+To get stations location, shapefiles are the most convenient tools. JCDecaux Vélib shapefiles have been found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). Since the link might no longer be active, you can find it on this [repo](https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true). To reproduce this analysis with the new Vélib system, go [here](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/). As shown in the [tutorial]() dedicated to shapefiles handling, we use `rgdal` to read shapefiles
 
-```{r load shapefile, results='hide'}
-shapeVelib <- paste0(datadir,"/stations-velib-disponibilites-en-temps-reel/jcdecaux_bike_data.shp")
-
-shpbike <- rgdal::readOGR(shapeVelib)
+```{r}
+# Download, unzip and load Vélib station shapefile
+shpbike <- UrbanEco::download.unzip(url = "https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true")
 ```
 
 We have `r nrow(shpbike@data)` stations in our data. `leaflet` handles `SpatialPolygonsDataFrame`, `SpatialPolygonsPoinsDataFrame` and other spatial objects. To 
@@ -67,43 +66,20 @@ leaflet(shpbike) %>% addTiles() %>% addCircles()
 
 The call to `addTiles` allows to get an `Open Street Map` background while `addCircles` adds points to `xy` location. Since the input `shpbike` is a spatial object, `leaflet` automatically understand where to find object's coordinates. 
 
-## Cycling areas
-
-Data can be found [here](https://www.data.gouv.fr/fr/datasets/paris-reseau-cyclable/) and downloaded as shapefiles. Once unzipped, they can be imported as a `SpatialLinesDataFrame`
-
-```{r load shapefile road, results = 'hide'}
-shapeRoad <- paste0(datadir,"/reseau-cyclable/reseau-cyclable.shp")
-
-shpRoad <- rgdal::readOGR(shapeRoad)
-```
-
-A total of `r length(shpRoad@lines)` roads can be found. Once again, a `leaflet` map is easy to create. This time, we will represent the bicycle roads which are, in our case, of `r length(unique(shpRoad$typologie_s))` types (`r paste(levels(shpRoad$typologie_s), collapse = ", ")`)
-
-```{r map pistes cyclables, fig.width=12, fig.height=8}
-pal <- colorFactor(
-  palette = "Greens",
-  domain = shpRoad$typologie_s)
-
-leaflet(shpRoad) %>% addTiles() %>% addPolylines(weight = 2, color = ~pal(typologie_s))
-```
-
-
 ## Bike data
 
-The bike data, once unzipped, can be imported in R. They are JSON formatted. `jsonlite::fromJSON` is useful to get data in R. We create a timestamp variable identifying the observation time
+The bike data, once unzipped, can be imported in R (download them by clicking [here](http://vlsstats.ifsttar.fr/rawdata/RawData/RawData_OLD/data_all_Paris.jjson_2017-06-01-1496291195.gz)). They are JSON formatted. `jsonlite::fromJSON` is useful to get data in R. We create a timestamp variable identifying the observation time
 
 ```{r load data}
-# Define filename
-file <- "data_all_Paris.jjson_2017-06-01-1496291195"
+out <- UrbanEco::download.unzip(url = "http://vlsstats.ifsttar.fr/rawdata/RawData/RawData_OLD/data_all_Paris.jjson_2017-06-01-1496291195.gz", extension = '.json')
 
-# Import and bind in a unique dataframe
-out <- lapply(readLines(paste0(datadir,"/",file)), jsonlite::fromJSON)
 df <- do.call(rbind,out)
 
 # Keep only data we are intersted in
 df <- dplyr::tbl_df(df) %>% filter(status == "OPEN") %>%
   dplyr::mutate(timestamp = lubridate::as_datetime(download_date)) %>%
   select(bike_stands,number,available_bike_stands,available_bikes,timestamp)
+
 ```
 
 which yields, for the May-2017 period, `r nrow(df)` observations that look like

@@ -175,7 +175,7 @@ One of the advantage of using R rather than a standard GIS software is the abili
 
 ## Spatial & Non-Spatial
 
-One of the standard ways to combine dataframes is by `inner join`. For two dataframes, the `dplyr::left_join` function allows straightforward merge using unique `ids`/`keys`. With a very close syntax, this methodology can be applied to create inner joins between `Spatial` objects and standard dataframes by associating each observation in a table with a geometric object (a polygon, line, or point). In particular, `merge` or `left_join` functions can be used by adapting standard syntax to `Spatial` objects. 
+One of the standard ways to combine dataframes is by `outer join`. For two dataframes, the `dplyr::left_join` function allows straightforward merge using unique `ids`/`keys`. With a very close syntax, this methodology can be applied to create outer and inner joins between `Spatial` objects and standard dataframes by associating each observation in a table with a geometric object (a polygon, line, or point). In particular, `merge` or `left_join` functions can be used by adapting standard syntax to `Spatial` objects. 
 
 As an example, we merge our shapefiles data to `FILOSOFI` data, French income distribution database at the infra-communal level (data come from [Insee website](https://www.insee.fr/fr/statistiques/2673683)). 
 
