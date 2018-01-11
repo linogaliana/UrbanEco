@@ -2,11 +2,7 @@
 title: "Handle Spatial Data with R"
 author: "Lino Galiana"
 date: "`r Sys.Date()`"
-output:
-  md_document:
-    toc: true
-  rmarkdown::html_vignette:
-    toc: true
+output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Handle Sparial Data with R}
   %\VignetteEngine{knitr::rmarkdown}
