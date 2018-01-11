@@ -1,0 +1,252 @@
+---
+title: "Handle Spatial Data with R"
+author: "Lino Galiana"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Handle Sparial Data with R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+R is a statistical programming language. As any programming language, standards data types are available (strings, numeric, lists, matrix...) as well as dataframes (and their most recent form, `tibbles`). See [here](http://r4ds.had.co.nz/) for more details. To represent and analyze spatial data, `shapefiles` data are convenient. Based on geometric forms (points, lines, polygons...), they can be handled by geographic information system (GIS), when indicated the correct projection system (`Mercator, Lambert 93`...) to interpret data. 
+
+R has been extended by some packages to handle spatial data. Those of particular interest are `rgdal` and `sp`. We will show how they can be used to get R being as good (and even better when used in complement to other packages) as any GIS software. This tutorial illustrates how to complement standard data management package (`dplyr`) with spatial packages (`rgdal`, `sp`). Another tutorial is dedicated to plotting spatial data.
+
+This tutorial will illustrate spatial data management with French infracommunal 2014 data. Income data at infracommunal level are available [here](https://www.insee.fr/fr/statistiques/2673683). 2014 IRIS limits shapefiles are available [here](https://wxs-telechargement.ign.fr/1yhlj2ehpqf3q6dt6a2y7b64/telechargement/inspire/CONTOURS-IRIS-FRANCE-2014-01-01$CONTOURS-IRIS_2-0__SHP_LAMB93_FXX_2014-01-01/file/CONTOURS-IRIS_2-0__SHP_LAMB93_FXX_2014-01-01.7z) (unzip it and place it in the `datadir` directory)
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(rgdal)
+library(UrbanEco)
+
+datadir <- "/home/lino/Téléchargements"
+```
+
+# Import shapefiles in R
+
+We will study income distribution at the `IRIS` level, the smallest French infracommunal statistical units (2000 people). Go [here](https://wxs-telechargement.ign.fr/1yhlj2ehpqf3q6dt6a2y7b64/telechargement/inspire/CONTOURS-IRIS-FRANCE-2014-01-01$CONTOURS-IRIS_2-0__SHP_LAMB93_FXX_2014-01-01/file/CONTOURS-IRIS_2-0__SHP_LAMB93_FXX_2014-01-01.7z) and take 2014 IRIS shapefile. After unzipping at putting it in the `datadir` directory, we can start importing data. `rgdal` package has a dedicated function: `readOGR`:
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+IRISdir <- paste0(datadir, "/CONTOURS-IRIS_2-0__SHP_LAMB93_FXX_2014-01-01/CONTOURS-IRIS",
+                  "/1_DONNEES_LIVRAISON_2014/CONTOURS-IRIS_2-0_SHP_LAMB93_FE-2014")
+
+df.IRIS <- rgdal::readOGR(paste0(IRISdir,"/CONTOURS-IRIS_FE.shp"))
+```
+
+```{r, message=FALSE, warning=FALSE}
+class(df.IRIS)
+```
+
+Data are imported as `SpatialPolygonsDataFrame`. This means we have a geometric object with several attributes: `df.IRIS@data`,`df.IRIS@polygons`, `df.IRIS@proj4string` among others. The `.@data` attribute enables to handle spatial data as any dataframe as we will see. 
+
+## Taking care of projection system
+
+Shapefiles are understood by R (and by any other GIS software) as 2D geometric forms and are projected onto earth by a geometric projections. Most common one is `Mercator` or `WGS84`, used, for instance, by Google services. The legal projection in French data is `Lambert 93` but old shapefiles can sometimes be in `Lambert II extended`. It is recommended to always ensure the projection has been correctly interpreted (this advice is not R specific but also true in QGIS...). This might be tricky when you inherit a `shp` file without knowing where it comes from (e.g. not knowing whether it has been modified or not).  A simple way to see that nothing is crazy is to project data in a world map (in R, QGIS...) to ensure that data are where they should be. 
+
+The `sp` package has several functions to interpret projections or reproject if needed. In our case, projection system is stored in a `.prj` file which is automatically interpreted by R when importing,
+
+```{r, message=FALSE, warning=FALSE}
+proj4string(df.IRIS)
+```
+
+which is a `Lambert 93` projection system. Assume we don't have `.proj` file but know data are Lambert 93. In that case, using the `EPSG` code for Lambert 93 (`epsg:2154`):
+
+```{r, message=FALSE, warning=FALSE}
+proj4string(df.IRIS) <- CRS("+init=epsg:2154")
+```
+
+It is worth mentioning that it is just a re-interpretation of the polygons, not a re-projection. Reprojection might be needed because some packages require `WGS84` data (other implicitly reproject, e.g. Leaflet) or because merging spatial data require same projection to be used. To reproject data, use `sp::spTransform` function. Assume you want to transform data in WSG84 system, in that case, you can do (using EPSG code `4326`)
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+df.WSG84 <- sp::spTransform(df.IRIS,CRS("+init=epsg:4326"))
+```
+
+`Lambert II extended` is `+init=epsg:27572`. 
+
+## Useful operations
+
+Creating new variables can be done as for any dataframes by assignement. For instance, to create a department variable
+
+```{r, message=FALSE, warning=FALSE}
+df.IRIS$DEP <- substr(df.IRIS$DEPCOM, start = 1, stop = 2)  
+```
+
+As any dataframes, filtering or aggregating operations can be performed on spatial data. For instance, to filter data, several ways are possible:
+
+```{r, message=FALSE, warning=FALSE}
+# METHOD 1: []
+df75.m1 <- df.IRIS[df.IRIS$DEP %in% c('75','77','78','91','92','93','94','95'),]
+
+# METHOD 2: SUBSET
+df75.m2 <- subset(df.IRIS,df.IRIS$DEP == '75')
+```
+
+which gives us the infracommunal Paris decomposition (including suburbs): 
+
+```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+plot(df75.m1)
+```
+
+```{r, message=FALSE, warning=FALSE, fig.width=8, fig.height=5}
+plot(df75.m2)
+```
+
+It is also possible to use `dplyr` grammar to create new variables (for filtering spatial object, it is better to use other approaches). For instance, to count the number of IRIS by city:
+
+```{r, message=FALSE, warning=FALSE}
+df75.m1@data <- df75.m1@data %>% group_by(NOM_COM) %>% dplyr::mutate(IRIS.tot = n())
+
+knitr::kable(df75.m1@data[sample(1:nrow(df75.m1@data),10,F),])
+```
+
+# Spatial data conversion to dataframe
+
+A standard dataframe can be converted to a spatial data object. This is mostly useful with points where coordinates are a simple object to define: longitude and latitude. Vélib shapefile can be found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). 
+
+```{r, results='hide'}
+shapeVelib <- paste0(datadir,"/stations-velib-disponibilites-en-temps-reel/jcdecaux_bike_data.shp")
+
+shpbike <- rgdal::readOGR(shapeVelib)
+```
+
+```{r}
+class(shpbike)
+```
+
+To convert a `SpatialPointsDataFrame` object to a dataframe, a call to `data.frame` function can be done
+
+```{r}
+df <- tbl_df(data.frame(shpbike))
+```
+
+For a `SpatialPolygonsDataFrame`, conversion to dataframe should be done using `broom::tidy` (`ggplot2::fortify` method we see on old `StackOverflow` topics is still possible but is deprecated):
+
+```{r}
+dfpolygon <- broom::tidy(df75.m2)
+knitr::kable(head(dfpolygon,10), caption = "SpatialPolygon converted as dataframe")
+```
+
+Now imagine we have a dataframe with spatial coordinates we want to transform into shapefile (for instance because we want to export it to QGIS). Let's take `df`, the Vélib shapefile we converted as `tibble`:
+
+```{r}
+knitr::kable(head(df), caption = "Dataframe we will transform in SpatialDataFrame")
+```
+
+Setting coordinates to a dataframe is enough to transform it into `Spatial` object
+```{r}
+coordinates(df) <- ~coords.x1+coords.x2
+```
+
+`df` is now a spatial object:
+```{r}
+class(df)
+proj4string(df)
+```
+
+As explained earlier, one should care about the projection system. In our case, we should define a `Lambert 93` projection:
+
+```{r, message=FALSE, warning=FALSE}
+proj4string(df) <- CRS("+init=epsg:2154")
+```
+
+As any `sp` object, it is now easy to represent our data on a map (see dedicated [tutorial]())
+```{r, fig.width=12, fig.height=8}
+leaflet::leaflet(df) %>% leaflet::addTiles() %>%
+  leaflet::addCircles(popup = ~name)
+
+```
+
+To export a shapefile, e.g. for use in QGIS, the `writeOGR` function can be called
+```{r, eval = FALSE}
+rgdal::writeOGR(df,getwd(), driver="ESRI Shapefile", overwrite_layer=TRUE)
+```
+
+# Merge spatial data
+
+One of the advantage of using R rather than a standard GIS software is the ability to easily combine dataframes to create a clean spatial dataframe for plotting or producing geographic informations. 
+
+## Spatial & Non-Spatial
+
+One of the standard ways to combine dataframes is by `outer join`. For two dataframes, the `dplyr::left_join` function allows straightforward merge using unique `ids`/`keys`. With a very close syntax, this methodology can be applied to create outer and inner joins between `Spatial` objects and standard dataframes by associating each observation in a table with a geometric object (a polygon, line, or point). In particular, `merge` or `left_join` functions can be used by adapting standard syntax to `Spatial` objects. 
+
+As an example, we merge our shapefiles data to `FILOSOFI` data, French income distribution database at the infra-communal level (data come from [Insee website](https://www.insee.fr/fr/statistiques/2673683)). 
+
+```{r}
+df.filosofi <- readxl::read_xls(paste0(datadir,"/BASE_TD_FILO_DISP_IRIS_2013.xls"), skip = 5)
+knitr::kable(head(df.filosofi[,1:10]), caption = "Infracommunal income data")
+```
+
+Our shapefile has the follow form
+```{r}
+knitr::kable(head(df.IRIS@data), caption = "Shapefile")
+```
+
+We see that several variables allow to identify an IRIS. The most convenient key to use is the IRIS code (whenever possible, one should avoid taking city names as keys because mismatch can happen because of orthographic discrepancy). Let's rename this variable in the income database:
+
+```{r}
+df.filosofi <- df.filosofi %>% rename(DCOMIRIS = IRIS)
+```
+
+Everything is now in place to merge. A simple call to `merge` can be done (we only merge on `DCOMIRIS` id)
+
+```{r}
+df.merge <- merge(df.IRIS,df.filosofi)
+class(df.merge)
+```
+
+Thus, data keep their `Spatial` property but are augmented with new data. The combination is consistently done thanks to the unique identifying key. Dataframe now look like (only a few columns are showed):
+
+```{r}
+knitr::kable(head(df.merge@data[sample(1:nrow(df.merge),10,F),c(1:3,12:16)]))
+```
+
+Let's represent that on a `leaflet` map for Paris area. Data should be in a `WSG84` projection system for Leaflet so we must re-project data.
+
+```{r}
+df.merge2 <- subset(df.merge, DEP == '75')
+df.merge2 <- sp::spTransform(df.merge2,CRS("+init=epsg:4326"))
+```
+
+```{r, fig.height=10, fig.width=12}
+
+library(leaflet)
+
+pal <- colorNumeric(
+  palette = "Reds",
+  domain = df.merge2$DISP_MED13)
+
+
+leaflet(df.merge2) %>% addTiles() %>%
+  addPolygons(color = ~pal(DISP_MED13), fillColor = ~pal(DISP_MED13),
+               opacity = 2, weight = 1)
+
+```
+
+It yields a map of IRIS median income. One can see the income division of Paris city. 
+
+The same merge operation can be done using `dplyr::left_join`. This time, merge should be processed on the `.@data` attribute. Using `left_join` and putting `.@data` in first position is necessary not to change the rows order (that would put disorder in the polygons-data matching). 
+
+```{r, fig.height=10, fig.width=12}
+df.merge3 <- df.IRIS
+df.merge3@data <- left_join(df.IRIS@data,df.filosofi)
+
+df.merge3 <- subset(df.merge3,df.merge3$DEP == '75')
+```
+
+
+## Spatial & Spatial
+
+It is possible to combine spatial data of different nature in `R`.
+
+
+# Spatial statistics
+
+

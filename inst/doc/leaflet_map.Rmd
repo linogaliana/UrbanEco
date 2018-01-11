@@ -1,0 +1,416 @@
+---
+title: "Analyze Paris free biking system with R"
+author: "Lino Galiana"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Paris Vélib Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message=FALSE, warning=FALSE
+)
+```
+
+R has several package to handle spatial data or represent them. We will study free biking use in Paris area and represent results with `leaflet`. `leaflet` is an easy-to-use library that can be used to draw HTML interactive map. It allows to get, with only a few lines of R syntax, nice maps that would require many Java commands otherwise. 
+
+This tutorial will show how we can use `leaflet` to represent spatial data and how to handle them in `R`. It will also give a few examples of statistical techniques that can be used in spatial analysis. Several types of readers can find happiness here. Those that are only interested in `leaflet` can only look at the map produced and the functions called. Those interested in machine learning problems for spatial analysis can have a closer look to the techniques used. Those interested in understanding free biking spatial and temporal distributions will find other elements useful. 
+
+We use 2017 Vélib data from JC Decaux open data. Vélib data are available on [data.gouv](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/#_) and [JC Decaux API](https://developer.jcdecaux.com/#/opendata/vls?page=getstarted). We will use more complete data made available by the `IFFSTAR`, [here](http://vlsstats.ifsttar.fr/rawdata/) that allow to get free access to historic data.
+
+Last months data are special - many stations have been closed to prepare operating firms transition - and should rather not be used. We will present data based on May 2017. To ensure reproducibility of the results, allowing `Vignettes` to be built for any user wanting to import package, we use the `UrbanEco::download.unzip` method we built. 
+
+# Loading data
+
+To reproduce the results presented here, you just need to load a few packages (install them using `install.packages(***)` if needed). I recommend loading the minimum possible packages, which are the following
+
+```{r datadir}
+datadir <- "/home/lino/Téléchargements"
+
+# One must install the dev version of maptools not the common one
+#devtools::install_github("environmentalinformatics-marburg/mapview", ref = "develop")
+
+library(leaflet)
+library(dplyr)
+library(rgdal)
+library(ggplot2)
+library(mapview)
+
+library(UrbanEco)
+```
+
+Other packages that are used for only a few functions are called as `pkg::function`. 
+
+Data that are presented here are all open-access. You can download them by following the links indicated and unzip them all in a specific directory. 
+
+## Station shapefile
+
+To get stations location, shapefiles are the most convenient tools. JCDecaux Vélib shapefiles have been found [here](https://www.data.gouv.fr/fr/datasets/stations-velib-disponibilites-en-temps-reel-prs/) (take `shp` file). Since the link might no longer be active, you can find it on this [repo](https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true). To reproduce this analysis with the new Vélib system, go [here](https://opendata.paris.fr/explore/dataset/velib-disponibilite-en-temps-reel/information/). As shown in the [tutorial]() dedicated to shapefiles handling, we use `rgdal` to read shapefiles
+
+```{r}
+# Download, unzip and load Vélib station shapefile
+shpbike <- UrbanEco::download.unzip(url = "https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true")
+```
+
+We have `r nrow(shpbike@data)` stations in our data. `leaflet` handles `SpatialPolygonsDataFrame`, `SpatialPolygonsPoinsDataFrame` and other spatial objects. To 
+An interactive map can be easily plotted using `leaflet`.
+
+```{r plot shapefile, fig.width=12, fig.height=8}
+leaflet(shpbike) %>% addTiles() %>% addCircles() 
+```
+
+The call to `addTiles` allows to get an `Open Street Map` background while `addCircles` adds points to `xy` location. Since the input `shpbike` is a spatial object, `leaflet` automatically understand where to find object's coordinates. 
+
+## Bike data
+
+The bike data, once unzipped, can be imported in R (download them by clicking [here](http://vlsstats.ifsttar.fr/rawdata/RawData/RawData_OLD/data_all_Paris.jjson_2017-06-01-1496291195.gz)). They are JSON formatted. `jsonlite::fromJSON` is useful to get data in R. We create a timestamp variable identifying the observation time
+
+```{r load data}
+out <- UrbanEco::download.unzip(url = "http://vlsstats.ifsttar.fr/rawdata/RawData/RawData_OLD/data_all_Paris.jjson_2017-06-01-1496291195.gz", extension = '.json')
+
+df <- do.call(rbind,out)
+
+# Keep only data we are intersted in
+df <- dplyr::tbl_df(df) %>% filter(status == "OPEN") %>%
+  dplyr::mutate(timestamp = lubridate::as_datetime(download_date)) %>%
+  select(bike_stands,number,available_bike_stands,available_bikes,timestamp)
+
+```
+
+which yields, for the May-2017 period, `r nrow(df)` observations that look like
+
+```{r show data}
+knitr::kable(head(df,10), caption = "Velib Data")
+```
+
+# Merge historic data with coordinates
+
+All stations have a unique `id` number. It enables to merge our shapefile with historic data. Merge can be easily achieved by the following code 
+
+```{r merge data}
+# Merge data: tibble dataframe
+dfbike.xy <- tbl_df(merge(df,shpbike))
+
+# Transform back in spatial object
+sp::coordinates(dfbike.xy) <- ~coords.x1+coords.x2
+proj4string(dfbike.xy) <- proj4string(shpbike)
+```
+
+## An example: Looking at station use throughout the day
+
+Assume we want to represent the change of bike availability during the day (we will have a more systematic approach later). Let's take two periods of time: morning (7:00 to 10:00) and evening (17:00 to 20:00) 
+
+```{r bike station change}
+# Keep only morning and after working hours periods
+dfbike <- df %>% filter(between(lubridate::hour(timestamp),7,10) | between(lubridate::hour(timestamp),17,20))
+```
+
+Now, let's define, for all stations, morning and evening profiles. At any times, we compute the share of used stands (to account for the fact that some stations are larger than others). We then compute, for each station, the average by time period
+
+```{r}
+# Create a period identifier
+dfbike <- dfbike %>% dplyr::mutate(period1 = between(lubridate::hour(timestamp),7,10)) %>%
+  dplyr::mutate(period2 = between(lubridate::hour(timestamp),17,20)) %>%
+  dplyr::mutate(period = period1 + 2*period2) %>%
+  select(-period1,-period2)
+
+# Create vacancy rate variable by period
+dfbike <- dfbike %>% dplyr::mutate(vacancy_rate = available_bike_stands/bike_stands) %>%
+  group_by(number,period) %>%
+  summarise(vacancy_rate = mean(vacancy_rate,na.rm=T))
+```
+
+Finally, we can define two groups: stations that win bikes between the day (vacancy rate in the afternoon is lower than in the morning, i.e. `stands_change<0`) and stations that lose some (`stands_change>0`). 
+
+```{r}
+# Create a stands use variable change from morning to afternoon
+dfbike <- dfbike %>% group_by(number) %>% arrange(period) %>%
+  dplyr::mutate(stands_change = vacancy_rate-lag(vacancy_rate)) %>%
+  dplyr::mutate(station.group = stands_change>0) %>%
+  filter(period == 2) %>% ungroup()
+```
+
+Let's merge with our shapefile. For that we can use `merge`. A drawback of using this method is that data are converted back to standard dataframe and must be set again as spatial object by the use of `sp::coordinates`. In the following, we will see a more convenient method to merge spatial and non spatial data.
+
+```{r}
+# Merge data: tibble dataframe
+dfbike2.xy <- tbl_df(merge(dfbike,shpbike))
+
+# Transform back in spatial object
+sp::coordinates(dfbike2.xy) <- ~coords.x1+coords.x2
+proj4string(dfbike2.xy) <- proj4string(shpbike)
+```
+
+Finally let's represent a map of our station use. Red stations will be those that lose bikes between the day (and blue those that lose bikes from morning to evening). The size of the circle will be proportional to the change from morning to afternoon 
+
+```{r, fig.width=12, fig.height=8}
+# Make a map
+leaflet(dfbike2.xy) %>% addTiles() %>%
+  addCircles(color = ~ ifelse(station.group == TRUE, 'red', 'blue'),
+                                                  radius = ~abs(stands_change)*600,
+             popup = ~htmltools::htmlEscape(name))
+```
+
+the `popup` option is used so that, when clicking on a circle, the name of the station appears. The color pattern is consistent with the intuition. Red stations are mostly present in working areas (*La Défense, Grands Boulevards, Boulogne* and working centers around the *périphérique*) or university centers (5th and 6th *arrondissements*) while blue stations mostly represent residential areas (*11th, 14-15th, 17-20th arrondissements*, residential suburbs as Issy, Vincennes, Ivry...). This embodies well-known facts about Paris spatial segregation and public space use. 
+
+# Look around Sciences Po
+
+Let's have a look at the situation around Sciences Po. Assume we only know the Sciences Po's adresse: *27 Rue Saint-Guillaume, 75007 Paris*. To get longitude and latitudes associated to the address, several APIs can be used. If you get a limited number of request to do, you can use Google APIs. However, the 2500 daily request limit, in practice, limits its use when working with address vectors we want to localize.
+
+For this reason, we will favor the use of the *Base d'Adresse Nationale* (BAN API), an unlimited API created by French government (of course, it makes sense because we consider French address).
+
+The `UrbanEco::getGEOAPI` function can be used to recover the coordinates of Sciences Po by a call to the BAN API
+
+```{r}
+address <- "27 Rue Saint-Guillaume, 75007 Paris"
+
+getGEOAPI <- function(query = '8 bd du port',
+                      geo.place = F){
+
+  url <- if (!geo.place) paste0("https://api-adresse.data.gouv.fr/search/?q=",
+                                URLencode(query)) else paste0("http://sirene.addok.xyz/search/?q=",
+                                                              URLencode(query))
+
+  query.result <- jsonlite::fromJSON(httr::content(httr::GET(url = url),"text"))
+
+  return(query.result)
+}
+
+scpo.xy <- getGEOAPI(address)
+coordinates <- as.numeric(unlist(scpo.xy$features$geometry$coordinates))
+```
+
+Sciences Po coordinates are `r paste(coordinates, collapse = ", ")`. Now, let's produce the same map as before but centered around Science Po. This is the purpose of the `setView` function:
+
+```{r, fig.width=12, fig.height=8}
+leaflet(dfbike2.xy) %>% addTiles() %>% setView(coordinates[1],  coordinates[2], zoom = 15) %>%
+  addMarkers(coordinates[1],  coordinates[2], popup = htmltools::htmlEscape("Sciences Po")) %>%
+  addCircles(color = ~ ifelse(station.group == TRUE, 'red', 'blue'),
+                                                  radius = ~abs(stands_change)*100,
+             popup = ~htmltools::htmlEscape(name))
+```
+
+No suprise around Sciences Po, as it is part of the 6th *arrondissement*. Bikes that come in the morning are no longer present for the night. In other words, people come from other Paris areas and leave before nightfall. This embodies the fact that several university are part of the Sciences Po's neighborhood. On the contrary, as expected, people that live in Sciences Po's neighborhood (richer than average) do not tend to take Vélib to go back home after business hours.
+
+# Determine station type
+
+## Objective
+
+Last example showed a simple decomposition of Paris urban areas. We can use statistical techniques to associate stations that have similar pattern together. You can find an example [here](http://www.comeetie.fr/galerie/velib/#). 
+
+We will also explore clustering techniques to decompose Vélib network in a few typical groups. For that end, we will use the **k-means** clustering algorithm. Given a set of $n$ stations $(s_1,...,s_n)$ (where each station $i$ is observed $d$ times, i.e. $s_i = (s_i^d,...,s_i^d)$), we want to find the partition in $k$ groups that minimizes the within-cluster variance, i.e. that finds the $k$ most homogeneous groups.
+
+In this tutorial, we fix $k = 5$ and will take, as training sample, all our sample. A more robust approach would be to split our stations sample in training and testing grous and select $k$ that minimizes the cross-validated error. Since we are only interested in intuitions, we will not go that far.
+
+## Preparing data for implementation
+
+Our dataframe is well-suited for this classification exercise. However, to reduce the computationally cost of the *k-means* technique, we will reduce the dimension of the dataframe.
+
+Let's aggregate data by hour (taking mean) so that, instead of having 2200 observations, we only keep `r 7*24` observations by station. Even if loosing some information is not optimal, keeping one observation by hour for all days is enough to identify station pattern. It will significantly reduce the problem complexity. 
+
+```{r}
+df <- df %>% dplyr::mutate(vacancy_rate = available_bike_stands/bike_stands)
+
+df2 <- df %>% dplyr::mutate(day = lubridate::wday(timestamp),
+                                                 hour = lubridate::hour(timestamp)) %>%
+  group_by(number,day,hour) %>% summarise(vacancy_rate = mean(vacancy_rate,na.rm=T)) %>%
+  ungroup() %>% select(-day,-hour) %>%
+  group_by(number) %>% dplyr::mutate(n = row_number()) %>% ungroup()
+
+knitr::kable(head(df), caption = "Data after dimensionality reduction")
+```
+
+For *k-means* computation, we need to reshape data to get one observation by station. In our case, this means converting our data from long to wide (see [this page](http://www.cookbook-r.com/Manipulating_data/Converting_data_between_wide_and_long_format/))
+
+```{r}
+data_wide <- reshape2::dcast(df2, number ~ n, value.var="vacancy_rate")
+
+knitr::kable(head(data_wide[,1:10]), caption = "Vélib data wide-formatted")
+```
+
+## `k-means` computation
+
+Everything is in order to start clustering. Since `kmeans` function does not handle missing values, we use `na.omit` to drop observations with at least one missing value (only 7 observations are dropped)
+
+```{r}
+# Drop observations with NA
+data_wide <- na.omit(data_wide)
+
+# Cluster observations
+clusters <- kmeans(data_wide[,-1], 5, nstart = 20)
+data_wide$cluster <- clusters$cluster
+
+# Keep only cluster in data_wide2 dataframe
+data_wide2 <- data_wide %>% select(number,cluster)
+
+knitr::kable(head(data_wide2))
+```
+
+Since every observation (i.e. station) is assigned to a group, we can determine a group profile by looking at all observations assigned to a cluster.
+
+Let's store in a list, for each group, a plot of the vacancy rate along the week (from Monday 0:00 to Sunday 23:00). This will be useful for the next map. To that end, we call sequentially `ggplot` to create a series of vacancy rate 
+
+```{r}
+data.mean <- data_wide[,-which(colnames(data_wide) == "number")] %>% group_by(cluster) %>%
+  summarise_all(funs(mean(.,na.rm = T))) %>% ungroup() %>% select(-cluster)
+
+p <- lapply(1:nrow(data.mean), function(i)({
+  
+  df   <- data.frame(y = as.numeric(data.mean[i,]))
+  df$x <- as.numeric(1:nrow(df))
+  df$d <- seq(
+     from= as.POSIXct("2017-12-04 00:00", tz="Europe/Paris"),
+     to= as.POSIXct("2017-12-10 23:00", tz="Europe/Paris"),
+     by="hour"
+   )
+  df$d <- paste0(lubridate::wday(df$d,label = TRUE), " ",
+                 lubridate::hour(df$d), ":00")
+  brk <- df$x[seq(1,nrow(df),by = 10)]
+  lbl <- as.character(df$d[seq(1,nrow(df),by = 10)])
+  
+  ggplot(data = df, aes(x = x, y=y)) + geom_line() +
+    scale_x_continuous(breaks = brk, labels = lbl) +
+    theme(axis.text.x=element_text(angle=45, hjust=1)) +
+    labs(x = "", y = "Vacancy rate", title = paste0("Cluster ",i))
+  })
+)
+```
+
+which gives, when all put together,
+
+```{r, fig.width=10, fig.height=8}
+gridExtra::grid.arrange(p[[1]],p[[2]],p[[3]],p[[4]],p[[5]], nrow = 3)
+```
+
+Cluster 3 represents stations that are very used (vacancy rate is never higher than 40\%). Stations are almost full for the night and more empty in the morning. This might represents a residential area profile. This represents the type where stations are closest from being always full. 
+
+Cluster 1 profile seems also to be a residential profile. However, the structural level of vacancy is higher meaning that this stations are never full. 
+This might represent suburbs stations (residential area but less turnover than cluster 3). 
+
+Cluster 2 stations might be associated with job areas. Vacancy rate falls down every morning and goes up for the night. Stations are almost full in the morning but empty for the night. They are not very used for weekend which suggests this is a non-touristic working zone. 
+
+Cluster 4 station type might also be associated with residential area. It differs from cluster 3 by its structural level of empty stations. It differs from cluster 1 by its weekend profile. Stations do not only miss bike during the week but also during the weekend. 
+Finally, cluster 5 might also gather stations that belong to a working area. However, stations in cluster 5 might differ from cluster 2 during weekends. One can see that they are almost full on saturday and sunday, suggesting us they also are touristic areas, certainly more present in the Paris center than in periphery, especially around the *Seine*. 
+
+As a last step before plotting, we can compute the Euclidian distance between an observation and the center of the cluster it belongs.
+
+```{r}
+distCenter <- function(cluster.group){
+  
+  data <- data_wide %>% filter(cluster == as.numeric(cluster.group)) %>%
+    select(-cluster)
+  cluster.center = clusters$centers[cluster.group,,drop=F]
+  
+  p <- sapply(1:nrow(data), function(i) sqrt(sum((as.numeric(data[i,-1])-as.numeric(cluster.center))^2)))
+  p <- data.frame(id = data$number,dist = p)
+
+  return(p)
+} 
+
+dist <- lapply(1:5, function(gg) distCenter(gg))
+dist <- do.call(rbind,dist) %>% rename(number = id)
+
+knitr::kable(head(dist), caption = "Distance to the center of the cluster")
+```
+
+Let's add this information to the cluster groups
+
+```{r}
+data_wide <- data_wide2
+data_wide <- left_join(data_wide,dist)
+```
+
+Finally, we merge to the shapefile. Rather than using `merge` as before, we directly join non-spatial data to the spatial data `@data` attribute. 
+
+```{r}
+# Join spatial data and non spatial data
+dfbike2.xy@data <- left_join(dfbike2.xy@data,data_wide)
+
+# Drop NAs
+dfbike2.xy@data <- dfbike2.xy@data[!is.na(dfbike2.xy@data$cluster),]
+```
+
+## Preparing `popupGraph`
+
+We will add a `popup` graph that will be shown when clicking on a station. We want to show, when a station is selected, the typical profile of its cluster. 
+
+For that end, the `mapview` package proposes a `popupGraph` function. Since there is no buil-in `reactive` function call that would react to user action, graphs that should popup should all be stored in a list. In our case, it means storing `r nrow(dfbike2.xy@data)` graphs. We already computed the 5 different figures we will use. We need to put that in a list where each element is assigned to an observation.
+
+```{r}
+p2 <- lapply(1:nrow(dfbike2.xy@data), function(i)({
+  p[[dfbike2.xy@data$cluster[i]]]
+})
+  )
+```
+
+In our case, the list is `r length(p2)` elements long. One could think this requires lots of RAM memory. It does not thanks to the way R handles memory. We already computed the 5 interesting graphs in our memory with `p`. `p2` is only using elements of `p`. Thus, R uses pointers that map elements of `p2` to `p` such that, as long as `p` exists (which does not require so much RAM), `p2` does not require any additional amount of RAM:
+
+```{r}
+# Size of p
+pryr::object_size(p)
+
+# Size of p & p2 in memory
+pryr::object_size(p,p2)
+# THE SAME !
+```
+
+## Map
+
+Finally, we can draw the map. Let's add the popup graphs by the use of the `mapview` package:
+
+```{r, fig.width=12, fig.height=8, eval = T}
+# Create colors
+pal <- colorFactor(
+  palette = "Dark2",
+  domain = dfbike2.xy$cluster)
+
+# Map
+leaflet(dfbike2.xy) %>% addTiles() %>%
+  addCircles(color = ~ pal(cluster),
+             radius = ~50*dist,
+             popup = ~mapview::popupGraph(p2, type = "svg")) %>%
+    addLegend("bottomright", pal = pal, values = ~cluster,
+    title = "Cluster",
+    opacity = 1
+  )
+```
+
+one can see that station spatial distribution is consistent with the intuition we had from the analysis of the stations types. 
+
+# Voronoi
+
+As a final step, we can draw the area of influence of each station that will be an example of how to draw polygons on a map.
+
+To determine the area of influence of each stations, we use Voronoi polygons. This is a technique, based on the closest neighbor algorithm, that partitions space from a set of points that will be center of polygons. 
+
+Several packages can be used to compute Voronoi polygons. We use `dismo` here. To be rigorous, we should take care of the borders of the area of interest since they can affect the mapping we get. We let the default behavior (which is considering a large rectangle), knowing it can be problematic for suburbs.
+
+```{r, eval = T}
+# If needed, install.packages('dismo')
+voronoi.map = dismo::voronoi(dfbike2.xy)
+```
+
+Once computed, polygons can be represented with the `addPolygons` option in leaflet (if you only want polygons shape, you can use `addPolyLines`). 
+
+```{r, eval = T, fig.width=12, fig.height=8}
+pal <- colorFactor(
+  palette = "Dark2",
+  domain = voronoi.map$cluster)
+
+leaflet(voronoi.map) %>% addTiles() %>%
+  addPolygons(color = ~ pal(cluster), fillColor = ~ pal(cluster),
+               opacity = 0.8, weight = 1) %>%
+  setView(mean(dfbike2.xy@bbox[1,]), mean(dfbike2.xy@bbox[2,]),
+          zoom = 14) %>%
+      addLegend("bottomright", pal = pal, values = ~cluster,
+    title = "Cluster",
+    opacity = 1
+  )
+```
+
+Many more things can be achieved with `leaflet`, I recommend looking at only documentations and tutorials for other examples. 

@@ -2,7 +2,11 @@
 title: "Analyze Paris free biking system with R"
 author: "Lino Galiana"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+output:
+  md_document:
+    toc: true
+  rmarkdown::html_vignette:
+    toc: true
 vignette: >
   %\VignetteIndexEntry{Paris Vélib Data}
   %\VignetteEngine{knitr::rmarkdown}

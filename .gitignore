@@ -2,7 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
-inst/doc
+#inst/doc
 .Rapp.history
 
 bfg-1.12.16.jar

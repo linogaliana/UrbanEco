@@ -1,0 +1,35 @@
+---
+title: "Creating maps with R"
+author: "Lino Galiana"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Creating maps with R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+`R` has a powerful graphical engine that can be used to produce maps. It is possible to produce nice `png` or `HTML` maps with `R` and even embbed them directly in a scientific report using `Rmarkdown`. The wide range of cartographic packages and the powerful spatial data management functions (see dedicated tutorial [here]()) makes R as powerful as any GIS software (and probably even better when we need data coming from several sources).
+
+This tutorial will illustrate R cartographic engines with several examples:
+
+* Mobile phone antennas data for the 4 main telecom companies are made available by the `ARCEP`, French telecom regulator. They can be downloaded on [data.gouv](https://www.data.gouv.fr/fr/datasets/monreseaumobile/#_)
+* Urban areas limits come from two sources. Shapefiles of French city limits can be downloaded from [IGN website](https://wxs-telechargement.ign.fr/oikr5jryiph0iwhw36053ptm/telechargement/inspire/GEOFLA_THEME-COMMUNE_2016$GEOFLA_2-2_COMMUNE_SHP_LAMB93_FXX_2016-06-28/file/GEOFLA_2-2_COMMUNE_SHP_LAMB93_FXX_2016-06-28.7z). Urban area compositions are available on the [`INSEE` website](https://www.insee.fr/fr/information/2115018)
+
+# Import data
+
+
+# Basic shapefile plotting with `base plot`
+
+
+
+
+Application: IRIS, limites des communes
+Application: antennes téléphone
