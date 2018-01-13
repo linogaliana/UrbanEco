@@ -1,11 +1,17 @@
 #' General method for downloading and unzipping a file/directory from url
 #'
+#' Automatically download and unzip data from an URL. Data can be written in the disk
+#' or directly read into R
 #' @param url URL that will be requested
 #' @param unzip If \code{TRUE}, downloaded file is unzipped, otherwise not (\code{FALSE})
 #' @param extension Extension of the file if \code{method = 'r'} (read file)
 #' @param dest Destination where file/directory should be put when \code{method = 'w'}.
 #' Ignored otherwise
 #' @param ... Other arguments to pass to control reading or writing behavior
+#' @examples {
+#' shpbike <- UrbanEco::download.unzip(url = "https://github.com/linogaliana/UrbanEco/blob/master/inst/stations-velib-disponibilites-en-temps-reel.zip?raw=true")
+#' out <- UrbanEco::download.unzip(url = "http://vlsstats.ifsttar.fr/rawdata/RawData/RawData_OLD/data_all_Paris.jjson_2017-06-01-1496291195.gz", extension = '.json')
+#' }
 
 download.unzip <- function(url = "http://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=shp",
                            unzip = TRUE, extension = '.shp', method = "r",
