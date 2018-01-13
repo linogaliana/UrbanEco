@@ -1,7 +1,7 @@
 UrbanEco
 ================
 Lino Galiana
-02 janvier 2018
+13 janvier 2018
 
 Goal
 ====
@@ -12,8 +12,9 @@ This `repo` is dedicated to R programming language. It shows that spatial data c
 
 All spatial data presented are open-source data, mostly coming from [data.gouv](https://www.data.gouv.fr/fr/), the French official statistics website. In this repository, you can find the following tutorials:
 
--   [Handle Spatial Data with R](): a tutorial showing how to use spatial data in R.
--   [Analyze Paris free biking system with R](https://cdn.rawgit.com/linogaliana/UrbanEco/378746f4/vignettes/leaflet_map.html?raw=true): a tutorial for building pedagogical maps with `leaflet`. Tutorial is illustrated with May 2017 Vélib data, the Paris free biking system.
+-   [Handle Spatial Data with R](https://cdn.rawgit.com/linogaliana/UrbanEco/b1436c46/inst/doc/handle_shapefiles.html): a tutorial showing how to use spatial data in R.
+-   [Making Maps with R](https://github.com/linogaliana/UrbanEco/blob/master/inst/doc/plot_shapefiles.html)
+-   [Analyze Paris free biking system with R](https://cdn.rawgit.com/linogaliana/UrbanEco/b1436c46/inst/doc/leaflet_map.html): a tutorial for building pedagogical maps with `leaflet`. Tutorial is illustrated with May 2017 Vélib data, the Paris free biking system.
 
 You can also find the following tools to help you working with spatial data:
 
